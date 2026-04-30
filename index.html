@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kiba.Angle — Тренажёр насмотренности</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #e5e7eb; font-family: system-ui, -apple-system, sans-serif;
+    touch-action: none; -webkit-user-select: none; user-select: none;
+  }
+  /* Верхняя панель: только заголовок по центру (без кнопки) */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 16px;
+    background: #e5e7eb;
+    border-bottom: 1px solid #d1d5db;
+    position: relative;
+  }
+  #header {
+    text-align: center;
+    color: #1f2937;
+    font-size: clamp(16px, 5vw, 22px);
+    font-weight: 800;
+    letter-spacing: 3px;
+  }
+  #header span { color: #2563eb; }
+  
+  /* КРУГЛАЯ КНОПКА С ВОСКЛИЦАТЕЛЬНЫМ ЗНАКОМ — теперь в controls */
+  .info-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #2563eb;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+    font-family: monospace;
+    line-height: 1;
+    vertical-align: middle;
+  }
+  .info-btn:active { transform: scale(0.94); background: #1e40af; }
+  
+  /* Модальное окно с информацией */
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(3px);
+  }
+  .modal-card {
+    background: #fffef7;
+    max-width: 85%;
+    width: 340px;
+    padding: 24px 20px;
+    border-radius: 32px;
+    box-shadow: 0 20px 35px rgba(0,0,0,0.3);
+    text-align: center;
+    font-family: system-ui, -apple-system, sans-serif;
+    border: 1px solid rgba(37,99,235,0.3);
+  }
+  .modal-card h3 {
+    font-size: 1.6rem;
+    margin-bottom: 16px;
+    color: #1e293b;
+    font-weight: 700;
+    border-left: 4px solid #2563eb;
+    padding-left: 14px;
+    text-align: left;
+  }
+  .modal-card p {
+    font-size: 1rem;
+    line-height: 1.45;
+    color: #2d3e50;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  .modal-card .note {
+    background: #f1f5f9;
+    padding: 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #2563eb;
+    margin-top: 8px;
+    border-left: 3px solid #f59e0b;
+  }
+  .close-modal-btn {
+    margin-top: 20px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 40px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.1s linear;
+    width: 100%;
+  }
+  .close-modal-btn:active { background: #1e40af; transform: scale(0.97); }
+  
+  #gameWrapper {
+    width: 100%; flex: 1; display: flex; 
+    justify-content: center; align-items: center;
+    overflow: hidden;
+  }
+  canvas {
+    display: block; background: #ffffff; border-radius: 4px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  }
+  #controls {
+    text-align: center;
+    padding: 10px 8px;
+    background: #e5e7eb;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+  }
+  #resetBtn {
+    background: #ef4444; color: #fff;
+    border: none; border-radius: 6px; padding: 8px 24px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    letter-spacing: 1px; box-shadow: 0 2px 4px rgba(239,68,68,0.2);
+    transition: 0.05s linear;
+  }
+  #resetBtn:active { transform: scale(0.96); background: #dc2626; }
+  #info {
+    text-align: center; color: #4b5563; font-size: 11px;
+    padding: 3px; background: #e5e7eb;
+  }
+</style>
+</head>
+<body>
+<!-- Верхняя панель: только название (кнопка перенесена в controls) -->
+<div class="top-bar">
+  <div id="header">KIBA<span>.</span>ANGLE</div>
+</div>
+
+<!-- Модальное окно (информация по приложению) -->
+<div id="infoModal" class="modal">
+  <div class="modal-card">
+    <h3>📐 О тренажёре</h3>
+    <p>Это приложение служит для тренировки <strong>насмотренности углов попадания</strong> и <strong>траектории следования камней после отскоков</strong>.</p>
+    <p>🎯 Вы перемещаете камни, управляете точкой пуска (синий ползунок) и наблюдаете рикошеты. Помогает развивать интуитивное понимание геометрии игровых ситуаций.</p>
+    <div class="note">
+      ⚠️ <strong>Важное замечание:</strong> Отскоки могут <strong>отличаться от реальных</strong>, так как в полной симуляции учесть все нюансы (разное вращение, силу, трение льда) невозможно. Реальные игроки кидают камни с различным вращением и усилием — наш тренажёр моделирует только базовую физику столкновений.
+    </div>
+    <button class="close-modal-btn" id="closeModalBtn">Понятно, продолжим</button>
+  </div>
+</div>
+
+<div id="gameWrapper"><canvas id="gameCanvas"></canvas></div>
+
+<!-- Панель управления: кнопка сброса + круглая кнопка информации справа -->
+<div id="controls">
+  <button id="resetBtn">⟲ СБРОС</button>
+  <button class="info-btn" id="infoButton" aria-label="Информация о приложении">!</button>
+</div>
+<div id="info">Перетаскивайте камни • Бегунок внизу управляет броском</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let W, H, D, stoneRadius, dpr, line1Y;
+let stones = [];
+let sliderX = 0;
+let dragging = null;
+let draggingSlider = false;
+
+const C1 = 1, C2 = 0.66, C3 = 0.33, C4 = 0.083;
+const MARGIN = 0.083;
+const LINE1_RATIO = 0.33;
+const MAX_DEV_DEG = 90 - 87.27;
+
+// === Модальное окно: обработчики (без изменения логики игры) ===
+const modal = document.getElementById('infoModal');
+const infoBtn = document.getElementById('infoButton');
+const closeModalBtn = document.getElementById('closeModalBtn');
+
+function openModal() {
+  modal.style.display = 'flex';
+}
+function closeModal() {
+  modal.style.display = 'none';
+}
+if (infoBtn) infoBtn.addEventListener('click', openModal);
+if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+if (modal) modal.addEventListener('click', (e) => {
+  if (e.target === modal) closeModal();
+});
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  
+  // Рассчитываем доступное пространство (учитывая высоту шапки, controls и info)
+  const hdrH = 48, ctrlH = 58, infoH = 24, pad = 4;
+  const availH = window.innerHeight - hdrH - ctrlH - infoH - pad * 2;
+  const availW = window.innerWidth - pad * 2;
+  
+  // Игровое поле: H = 2W. Оно должно вписаться в availW x availH
+  H = availH;
+  W = H / 2;
+  if (W > availW) {
+    W = availW;
+    H = W * 2;
+    if (H > availH) { H = availH; W = H / 2; }
+  }
+  
+  canvas.style.width = Math.floor(W) + 'px';
+  canvas.style.height = Math.floor(H) + 'px';
+  canvas.width = Math.floor(W * dpr);
+  canvas.height = Math.floor(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  
+  D = W / (1 + 2 * MARGIN);
+  stoneRadius = (D * C4 * 0.9277) / 2 ; // Диаметр камня = диаметру Круга 4
+  line1Y = H - LINE1_RATIO * D;
+  
+  initStones();
+  sliderX = W / 2;
+}
+
+function centerX() { return W / 2; }
+function houseCenterY() { return MARGIN * D + D / 2; }
+
+function initStones() {
+  stones = [];
+  // Строго ниже красной линии, компактная расстановка 2x2
+  const startY = line1Y + stoneRadius * 2.8; // Отступ от красной линии
+  const rowGap = stoneRadius * 3.2;
+  const colGap = stoneRadius * 4.5;
+
+  const positions = [
+    { x: centerX() - colGap, y: startY, color: 'red' },
+    { x: centerX() - colGap, y: startY + rowGap, color: 'red' },
+    { x: centerX() + colGap, y: startY, color: 'yellow' },
+    { x: centerX() + colGap, y: startY + rowGap, color: 'yellow' }
+  ];
+  
+  positions.forEach((p, i) => {
+    stones.push({ x: p.x, y: p.y, color: p.color, radius: stoneRadius, id: i });
+  });
+}
+
+// === Физика (как в кёрлинге) ===
+function rayCircle(ox, oy, dx, dy, cx, cy, r) {
+  const fx = ox - cx, fy = oy - cy;
+  const a = dx*dx + dy*dy;
+  const b = 2*(fx*dx + fy*dy);
+  const c = fx*fx + fy*fy - r*r;
+  const disc = b*b - 4*a*c;
+  if (disc < 0) return null;
+  const t = (-b - Math.sqrt(disc)) / (2*a);
+  return t > 2 ? { t, x: ox + dx*t, y: oy + dy*t } : null;
+}
+
+function findHit(ox, oy, dx, dy, exclude) {
+  let best = null, bestT = Infinity;
+  const rSum = stoneRadius * 2;
+  for (let s of stones) {
+    if (s === exclude) continue;
+    const hit = rayCircle(ox, oy, dx, dy, s.x, s.y, rSum);
+    if (hit && hit.t < bestT) { bestT = hit.t; best = { stone: s, ...hit }; }
+  }
+  return best;
+}
+
+function getBoundsHit(ox, oy, dx, dy) {
+  const bound = MARGIN * D;
+  let t = Infinity;
+  if (dx < 0) t = Math.min(t, (bound - ox)/dx);
+  if (dx > 0) t = Math.min(t, (W - bound - ox)/dx);
+  if (dy < 0) t = Math.min(t, (bound - oy)/dy);
+  if (dy > 0) t = Math.min(t, (H - bound - oy)/dy);
+  return t < Infinity ? { x: ox + dx*t, y: oy + dy*t } : { x: ox + dx*1000, y: oy + dy*1000 };
+}
+
+function getCollisionDirs(hitX, hitY, tx, ty, inDx, inDy) {
+  let nx = tx - hitX, ny = ty - hitY;
+  const len = Math.hypot(nx, ny);
+  if (len < 0.01) return { t: [0,-1], d: [1,0] };
+  nx /= len; ny /= len;
+  
+  // Физика кёрлинга: камни одинаковой массы
+  const targetDir = [nx, ny];
+  const dot = inDx*nx + inDy*ny;
+  let ddx = inDx - dot*nx, ddy = inDy - dot*ny;
+  const dlen = Math.hypot(ddx, ddy);
+  if (dlen > 0.01) { ddx /= dlen; ddy /= dlen; }
+  else { ddx = -ny; ddy = nx; }
+  
+  return { t: targetDir, d: [ddx, ddy] };
+}
+
+// === Расчёт всех траекторий ===
+function getAllTrajectories(ox, oy, dx, dy) {
+  const segments = [];
+  const hits = [];
+  const queue = [{ox, oy, dx, dy, exclude: null, depth: 0}];
+  
+  while(queue.length > 0) {
+    const q = queue.shift();
+    if(q.depth > 3) continue;
+
+    const hit = findHit(q.ox, q.oy, q.dx, q.dy, q.exclude);
+    const end = hit ? hit : getBoundsHit(q.ox, q.oy, q.dx, q.dy);
+
+    const styles = [
+      {dash: [], w: 2.5},
+      {dash: [6,4], w: 2},
+      {dash: [2,4], w: 1.8},
+      {dash: [1,2,5,2], w: 1.5}
+    ];
+    const st = styles[Math.min(q.depth, 3)];
+    segments.push({x1: q.ox, y1: q.oy, x2: end.x, y2: end.y, ...st});
+
+    if(hit) {
+      hits.push({x: hit.x, y: hit.y});
+      if(q.depth < 3) {
+        const dirs = getCollisionDirs(hit.x, hit.y, hit.stone.x, hit.stone.y, q.dx, q.dy);
+        queue.push({ox: hit.x, oy: hit.y, dx: dirs.d[0], dy: dirs.d[1], exclude: hit.stone, depth: q.depth+1});
+        queue.push({ox: hit.x, oy: hit.y, dx: dirs.t[0], dy: dirs.t[1], exclude: hit.stone, depth: q.depth+1});
+      }
+    }
+  }
+  return {segments, hits};
+}
+
+// === Отрисовка ===
+function drawHouse() {
+  const cx = centerX(), cy = houseCenterY();
+  const r1 = D/2, r2 = r1*C2, r3 = r1*C3, r4 = r1*C4;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,r1,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r1,0,Math.PI*2); ctx.fillStyle='#1e40af'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r2,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r3,0,Math.PI*2); ctx.fillStyle='#b91c1c'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,r4,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.2;
+  [r1,r2,r3,r4].forEach(r => { ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke(); });
+  ctx.restore();
+}
+
+function drawLines() {
+  const cx = centerX(), cy = houseCenterY(), r1 = D/2;
+  const m = MARGIN*D;
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(m, cy-r1); ctx.lineTo(W-m, cy-r1); ctx.stroke(); // Line2
+  ctx.beginPath(); ctx.moveTo(m, cy); ctx.lineTo(W-m, cy); ctx.stroke();       // Line3
+  ctx.beginPath(); ctx.moveTo(cx, m); ctx.lineTo(cx, H-m); ctx.stroke();       // Line4
+  ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(m, line1Y); ctx.lineTo(W-m, line1Y); ctx.stroke(); // Line1
+}
+
+function drawStone(s) {
+  ctx.beginPath(); ctx.arc(s.x+1.5, s.y+1.5, s.radius, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(s.x, s.y, s.radius, 0, Math.PI*2);
+  ctx.fillStyle = s.color==='red' ? '#dc2626' : s.color==='yellow' ? '#d97706' : '#2563eb';
+  ctx.fill();
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath(); ctx.arc(s.x, s.y, s.radius*0.35, 0, Math.PI*2);
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 1.8; ctx.stroke();
+}
+
+function drawShadow(x, y) {
+  ctx.save(); ctx.globalAlpha = 0.35;
+  ctx.beginPath(); ctx.arc(x, y, stoneRadius, 0, Math.PI*2);
+  ctx.fillStyle = '#4b5563'; ctx.fill();
+  ctx.restore();
+}
+
+function drawLine(x1, y1, x2, y2, dash, w) {
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+  ctx.strokeStyle = '#000'; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawTrajectories() {
+  const sy = H - stoneRadius*0.6;
+  const cx = centerX(), maxOff = D/2;
+  const ratio = Math.max(-1, Math.min(1, (sliderX - cx) / maxOff));
+  const devDeg = ratio * MAX_DEV_DEG;
+  const rad = devDeg * Math.PI/180;
+  const dirX = Math.sin(rad);
+  const dirY = -Math.cos(rad);
+  
+  const { segments, hits } = getAllTrajectories(sliderX, sy, dirX, dirY);
+  segments.forEach(s => drawLine(s.x1, s.y1, s.x2, s.y2, s.dash, s.w));
+  hits.forEach(h => drawShadow(h.x, h.y));
+}
+
+function drawSlider() {
+  const sy = H - stoneRadius*0.6;
+  ctx.beginPath(); ctx.moveTo(MARGIN*D, sy); ctx.lineTo(W-MARGIN*D, sy);
+  ctx.strokeStyle = 'rgba(100,100,100,0.15)'; ctx.lineWidth = 3; ctx.stroke();
+  drawStone({ x: sliderX, y: sy, color: 'blue', radius: stoneRadius });
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  drawHouse();
+  drawLines();
+  for (let s of stones) drawStone(s);
+  drawSlider();
+  drawTrajectories();
+  requestAnimationFrame(draw);
+}
+
+// === Ввод (drag & drop, sliders) ===
+function getPos(e) {
+  const r = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { x: (t.clientX - r.left) * (W/r.width), y: (t.clientY - r.top) * (H/r.height) };
+}
+
+function handleStart(e) {
+  e.preventDefault();
+  const p = getPos(e);
+  const sy = H - stoneRadius*0.6;
+  if (Math.abs(p.y - sy) < stoneRadius*2) { draggingSlider = true; return; }
+  for (let i=stones.length-1; i>=0; i--) {
+    const s = stones[i];
+    if (Math.hypot(p.x-s.x, p.y-s.y) < s.radius*3) {
+      dragging = { stone: s, offX: p.x-s.x, offY: p.y-s.y }; return;
+    }
+  }
+}
+
+function handleMove(e) {
+  e.preventDefault();
+  const p = getPos(e);
+  if (draggingSlider) {
+    sliderX = Math.max(MARGIN*D+stoneRadius, Math.min(W-MARGIN*D-stoneRadius, p.x));
+    return;
+  }
+  if (dragging) {
+    const s = dragging.stone;
+    s.x = Math.max(s.radius, Math.min(W-s.radius, p.x-dragging.offX));
+    s.y = Math.max(s.radius, Math.min(H-s.radius, p.y-dragging.offY));
+  }
+}
+
+function handleEnd() { dragging = null; draggingSlider = false; }
+
+canvas.addEventListener('mousedown', handleStart);
+canvas.addEventListener('mousemove', handleMove);
+canvas.addEventListener('mouseup', handleEnd);
+canvas.addEventListener('touchstart', handleStart, {passive:false});
+canvas.addEventListener('touchmove', handleMove, {passive:false});
+canvas.addEventListener('touchend', handleEnd);
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  initStones(); sliderX = W/2;
+});
+
+window.addEventListener('resize', resize);
+resize();
+draw();
+</script>
+</body>
+</html>
