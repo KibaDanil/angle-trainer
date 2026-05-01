@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Kiba.Angle — Тренажёр насмотренности</title>
+<title>Kiba.Angle</title>
 
- <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 <link rel="manifest" href="site.webmanifest">
- 
+
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -17,7 +17,6 @@
     background: #e5e7eb; font-family: system-ui, -apple-system, sans-serif;
     touch-action: none; -webkit-user-select: none; user-select: none;
   }
-  /* Верхняя панель: только заголовок по центру (без кнопки) */
   .top-bar {
     display: flex;
     align-items: center;
@@ -36,7 +35,6 @@
   }
   #header span { color: #2563eb; }
   
-  /* КРУГЛАЯ КНОПКА С ВОСКЛИЦАТЕЛЬНЫМ ЗНАКОМ — теперь в controls */
   .info-btn {
     width: 38px;
     height: 38px;
@@ -58,7 +56,6 @@
   }
   .info-btn:active { transform: scale(0.94); background: #1e40af; }
   
-  /* Модальное окно с информацией */
   .modal {
     display: none;
     position: fixed;
@@ -154,12 +151,10 @@
 </style>
 </head>
 <body>
-<!-- Верхняя панель: только название (кнопка перенесена в controls) -->
 <div class="top-bar">
   <div id="header">KIBA<span>.</span>ANGLE</div>
 </div>
 
-<!-- Модальное окно (информация по приложению) -->
 <div id="infoModal" class="modal">
   <div class="modal-card">
     <h3>📐 О тренажёре</h3>
@@ -174,7 +169,6 @@
 
 <div id="gameWrapper"><canvas id="gameCanvas"></canvas></div>
 
-<!-- Панель управления: кнопка сброса + круглая кнопка информации справа -->
 <div id="controls">
   <button id="resetBtn">⟲ СБРОС</button>
   <button class="info-btn" id="infoButton" aria-label="Информация о приложении">!</button>
@@ -196,32 +190,23 @@ const MARGIN = 0.083;
 const LINE1_RATIO = 0.33;
 const MAX_DEV_DEG = 90 - 87.27;
 
-// === Модальное окно: обработчики (без изменения логики игры) ===
+// Модальное окно
 const modal = document.getElementById('infoModal');
 const infoBtn = document.getElementById('infoButton');
 const closeModalBtn = document.getElementById('closeModalBtn');
 
-function openModal() {
-  modal.style.display = 'flex';
-}
-function closeModal() {
-  modal.style.display = 'none';
-}
+function openModal() { modal.style.display = 'flex'; }
+function closeModal() { modal.style.display = 'none'; }
 if (infoBtn) infoBtn.addEventListener('click', openModal);
 if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
-if (modal) modal.addEventListener('click', (e) => {
-  if (e.target === modal) closeModal();
-});
+if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
 
 function resize() {
   dpr = window.devicePixelRatio || 1;
-  
-  // Рассчитываем доступное пространство (учитывая высоту шапки, controls и info)
   const hdrH = 48, ctrlH = 58, infoH = 24, pad = 4;
   const availH = window.innerHeight - hdrH - ctrlH - infoH - pad * 2;
   const availW = window.innerWidth - pad * 2;
   
-  // Игровое поле: H = 2W. Оно должно вписаться в availW x availH
   H = availH;
   W = H / 2;
   if (W > availW) {
@@ -237,7 +222,7 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   
   D = W / (1 + 2 * MARGIN);
-  stoneRadius = (D * C4 * 0.9277) / 2 ; // Диаметр камня = диаметру Круга 4
+  stoneRadius = (D * C4 * 0.9277) / 2;
   line1Y = H - LINE1_RATIO * D;
   
   initStones();
@@ -247,26 +232,42 @@ function resize() {
 function centerX() { return W / 2; }
 function houseCenterY() { return MARGIN * D + D / 2; }
 
+// === НОВОЕ РАСПОЛОЖЕНИЕ КАМНЕЙ: 3 красных (слева) + 3 желтых (справа), прижаты к краям ===
+// Вертикальное расстояние МЕНЬШЕ (было stoneRadius * 3.2 → стало stoneRadius * 2.4)
+// Верхние камни приподняты чуть выше (startY был line1Y + stoneRadius * 2.2 → стало + stoneRadius * 1.6)
 function initStones() {
   stones = [];
-  // Строго ниже красной линии, компактная расстановка 2x2
-  const startY = line1Y + stoneRadius * 2.8; // Отступ от красной линии
-  const rowGap = stoneRadius * 3.2;
-  const colGap = stoneRadius * 4.5;
-
-  const positions = [
-    { x: centerX() - colGap, y: startY, color: 'red' },
-    { x: centerX() - colGap, y: startY + rowGap, color: 'red' },
-    { x: centerX() + colGap, y: startY, color: 'yellow' },
-    { x: centerX() + colGap, y: startY + rowGap, color: 'yellow' }
-  ];
+  const leftBound = MARGIN * D + stoneRadius;
+  const rightBound = W - MARGIN * D - stoneRadius;
   
-  positions.forEach((p, i) => {
-    stones.push({ x: p.x, y: p.y, color: p.color, radius: stoneRadius, id: i });
-  });
+  // Верхние камни подняты выше (было +2.2, теперь +1.6) — это "совсем чуть-чуть", но безопасно от линии
+  const startY = line1Y + stoneRadius * 1.6;
+  // Расстояние между камнями по вертикали УМЕНЬШЕНО: было 3.2, стало 2.4 (камни ближе друг к другу)
+  const verticalGap = stoneRadius * 2.4;
+  
+  const redX = leftBound + stoneRadius * 0.8;
+  const yellowX = rightBound - stoneRadius * 0.8;
+  
+  for (let i = 0; i < 3; i++) {
+    const yPos = startY + i * verticalGap;
+    stones.push({
+      x: redX,
+      y: yPos,
+      color: 'red',
+      radius: stoneRadius,
+      id: `red_${i}`
+    });
+    stones.push({
+      x: yellowX,
+      y: yPos,
+      color: 'yellow',
+      radius: stoneRadius,
+      id: `yellow_${i}`
+    });
+  }
 }
 
-// === Физика (как в кёрлинге) ===
+// === Физика ===
 function rayCircle(ox, oy, dx, dy, cx, cy, r) {
   const fx = ox - cx, fy = oy - cy;
   const a = dx*dx + dy*dy;
@@ -304,19 +305,14 @@ function getCollisionDirs(hitX, hitY, tx, ty, inDx, inDy) {
   const len = Math.hypot(nx, ny);
   if (len < 0.01) return { t: [0,-1], d: [1,0] };
   nx /= len; ny /= len;
-  
-  // Физика кёрлинга: камни одинаковой массы
-  const targetDir = [nx, ny];
   const dot = inDx*nx + inDy*ny;
   let ddx = inDx - dot*nx, ddy = inDy - dot*ny;
   const dlen = Math.hypot(ddx, ddy);
   if (dlen > 0.01) { ddx /= dlen; ddy /= dlen; }
   else { ddx = -ny; ddy = nx; }
-  
-  return { t: targetDir, d: [ddx, ddy] };
+  return { t: [nx, ny], d: [ddx, ddy] };
 }
 
-// === Расчёт всех траекторий ===
 function getAllTrajectories(ox, oy, dx, dy) {
   const segments = [];
   const hits = [];
@@ -325,10 +321,8 @@ function getAllTrajectories(ox, oy, dx, dy) {
   while(queue.length > 0) {
     const q = queue.shift();
     if(q.depth > 3) continue;
-
     const hit = findHit(q.ox, q.oy, q.dx, q.dy, q.exclude);
     const end = hit ? hit : getBoundsHit(q.ox, q.oy, q.dx, q.dy);
-
     const styles = [
       {dash: [], w: 2.5},
       {dash: [6,4], w: 2},
@@ -337,7 +331,6 @@ function getAllTrajectories(ox, oy, dx, dy) {
     ];
     const st = styles[Math.min(q.depth, 3)];
     segments.push({x1: q.ox, y1: q.oy, x2: end.x, y2: end.y, ...st});
-
     if(hit) {
       hits.push({x: hit.x, y: hit.y});
       if(q.depth < 3) {
@@ -369,11 +362,11 @@ function drawLines() {
   const cx = centerX(), cy = houseCenterY(), r1 = D/2;
   const m = MARGIN*D;
   ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(m, cy-r1); ctx.lineTo(W-m, cy-r1); ctx.stroke(); // Line2
-  ctx.beginPath(); ctx.moveTo(m, cy); ctx.lineTo(W-m, cy); ctx.stroke();       // Line3
-  ctx.beginPath(); ctx.moveTo(cx, m); ctx.lineTo(cx, H-m); ctx.stroke();       // Line4
+  ctx.beginPath(); ctx.moveTo(m, cy-r1); ctx.lineTo(W-m, cy-r1); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(m, cy); ctx.lineTo(W-m, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, m); ctx.lineTo(cx, H-m); ctx.stroke();
   ctx.strokeStyle = '#dc2626'; ctx.lineWidth = 2.5;
-  ctx.beginPath(); ctx.moveTo(m, line1Y); ctx.lineTo(W-m, line1Y); ctx.stroke(); // Line1
+  ctx.beginPath(); ctx.moveTo(m, line1Y); ctx.lineTo(W-m, line1Y); ctx.stroke();
 }
 
 function drawStone(s) {
@@ -408,7 +401,6 @@ function drawTrajectories() {
   const rad = devDeg * Math.PI/180;
   const dirX = Math.sin(rad);
   const dirY = -Math.cos(rad);
-  
   const { segments, hits } = getAllTrajectories(sliderX, sy, dirX, dirY);
   segments.forEach(s => drawLine(s.x1, s.y1, s.x2, s.y2, s.dash, s.w));
   hits.forEach(h => drawShadow(h.x, h.y));
@@ -432,7 +424,7 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
-// === Ввод (drag & drop, sliders) ===
+// === Ввод ===
 function getPos(e) {
   const r = canvas.getBoundingClientRect();
   const t = e.touches ? e.touches[0] : e;
