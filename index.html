@@ -373,7 +373,8 @@ function drawStone(s) {
   ctx.fillStyle = s.color==='red' ? '#dc2626' : s.color==='yellow' ? '#d97706' : '#2563eb';
   ctx.fill();
   ctx.strokeStyle = '#111'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.beginPath(); ctx.arc(s.x, s.y, s.radius*0.35, 0, Math.PI*2);
+  // ВНУТРЕННИЙ КРУГ (ручка) — радиус В ДВА РАЗА МЕНЬШЕ радиуса камня (stoneRadius * 0.5)
+  ctx.beginPath(); ctx.arc(s.x, s.y, s.radius * 0.5, 0, Math.PI*2);
   ctx.strokeStyle = '#444'; ctx.lineWidth = 1.8; ctx.stroke();
 }
 
