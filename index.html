@@ -190,7 +190,6 @@ const MARGIN = 0.083;
 const LINE1_RATIO = 0.33;
 const MAX_DEV_DEG = 90 - 87.27;
 
-// Модальное окно
 const modal = document.getElementById('infoModal');
 const infoBtn = document.getElementById('infoButton');
 const closeModalBtn = document.getElementById('closeModalBtn');
@@ -267,7 +266,6 @@ function initStones() {
   }
 }
 
-// === Физика ===
 function rayCircle(ox, oy, dx, dy, cx, cy, r) {
   const fx = ox - cx, fy = oy - cy;
   const a = dx*dx + dy*dy;
@@ -332,7 +330,7 @@ function getAllTrajectories(ox, oy, dx, dy) {
     const st = styles[Math.min(q.depth, 3)];
     segments.push({x1: q.ox, y1: q.oy, x2: end.x, y2: end.y, ...st});
     if(hit) {
-      hits.push({x: hit.x, y: hit.y});
+      hits.push({x: hit.x, y: hit.y, stone: hit.stone});
       if(q.depth < 3) {
         const dirs = getCollisionDirs(hit.x, hit.y, hit.stone.x, hit.stone.y, q.dx, q.dy);
         queue.push({ox: hit.x, oy: hit.y, dx: dirs.d[0], dy: dirs.d[1], exclude: hit.stone, depth: q.depth+1});
@@ -343,7 +341,6 @@ function getAllTrajectories(ox, oy, dx, dy) {
   return {segments, hits};
 }
 
-// === Отрисовка ===
 function drawHouse() {
   const cx = centerX(), cy = houseCenterY();
   const r1 = D/2, r2 = r1*C2, r3 = r1*C3, r4 = r1*C4;
@@ -387,6 +384,43 @@ function drawShadow(x, y) {
   ctx.restore();
 }
 
+// === НОВАЯ ФУНКЦИЯ: вертикальная проекция тени выпускаемого камня на целевой камень ===
+function drawHitSpot(stone, hitX, hitY) {
+  const r = stone.radius;
+  
+  // x-диапазон тени выпускаемого камня (в точке столкновения)
+  const shadowLeft = hitX - r;
+  const shadowRight = hitX + r;
+  
+  // x-диапазон целевого камня
+  const stoneLeft = stone.x - r;
+  const stoneRight = stone.x + r;
+  
+  // Пересечение по X — это и есть область пятна попадания
+  const spotLeft = Math.max(shadowLeft, stoneLeft);
+  const spotRight = Math.min(shadowRight, stoneRight);
+  
+  if (spotRight <= spotLeft) return;
+  
+  const spotColor = stone.color === 'red' ? '#991b1b' : 
+                    stone.color === 'yellow' ? '#92400e' : '#1e40af';
+  
+  ctx.save();
+  
+  // Обрезаем по контуру камня, чтобы пятно не выходило за его границы
+  ctx.beginPath();
+  ctx.arc(stone.x, stone.y, r, 0, Math.PI * 2);
+  ctx.clip();
+  
+  // Рисуем вертикальную полосу (прямоугольник) в области пересечения по X
+  // Он автоматически обрежется clip'ом по форме камня
+  ctx.fillStyle = spotColor;
+  ctx.globalAlpha = 0.85;
+  ctx.fillRect(spotLeft, stone.y - r, spotRight - spotLeft, 2 * r);
+  
+  ctx.restore();
+}
+
 function drawLine(x1, y1, x2, y2, dash, w) {
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
   ctx.strokeStyle = '#000'; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.stroke();
@@ -403,6 +437,12 @@ function drawTrajectories() {
   const dirY = -Math.cos(rad);
   const { segments, hits } = getAllTrajectories(sliderX, sy, dirX, dirY);
   segments.forEach(s => drawLine(s.x1, s.y1, s.x2, s.y2, s.dash, s.w));
+  
+  // Рисуем пятно попадания на первом поражённом камне
+  if (hits.length > 0 && hits[0].stone) {
+    drawHitSpot(hits[0].stone, hits[0].x, hits[0].y);
+  }
+  
   hits.forEach(h => drawShadow(h.x, h.y));
 }
 
@@ -424,7 +464,6 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
-// === Ввод ===
 function getPos(e) {
   const r = canvas.getBoundingClientRect();
   const t = e.touches ? e.touches[0] : e;
